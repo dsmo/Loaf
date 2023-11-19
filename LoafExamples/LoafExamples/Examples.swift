@@ -122,7 +122,7 @@ class Examples: UITableViewController {
         case .custom6:
             let backgroundView = UIView()
             backgroundView.backgroundColor = .systemBlue
-            Loaf(example.rawValue, state: .custom(.init(background: .view(backgroundView), shape: .capsule, stroke: .init(thickness: 1, color: .white), shadow: .init(), textAlignment: .center, width: .fittingText(maxTextWidth: 200))), location: .top, sender: self).show()
+            Loaf(example.rawValue, state: .custom(.init(background: .view(backgroundView), shape: .capsule, stroke: .init(thickness: 1, color: .white), shadow: .init(), textAlignment: .center, width: .fittingText(maxTextWidth: 200))), location: .top, layoutReference: .sender, sender: self).show()
         }
         
         tableView.deselectRow(at: indexPath, animated: true)

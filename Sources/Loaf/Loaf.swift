@@ -210,6 +210,14 @@ final public class Loaf {
         case bottom
     }
     
+    /// Defines the layout area to display the loaf. (Default is `.currentContext`)
+    /// - currentContext: Loaf is presented inside the safe area of the view controller which `definesPresentationContext = true`
+    /// - sender: Loaf is presented inside `sender`'s view safe area.
+    public enum LayoutReference {
+        case currentContext
+        case sender
+    }
+    
     /// Defines either the presenting or dismissing direction of loaf. (Default is `.vertical`)
     ///
     /// - left: To / from the left
@@ -263,6 +271,7 @@ final public class Loaf {
     var message: String
     var state: State
     var location: Location
+    var layoutReference: LayoutReference
     var duration: Duration = .average
     var presentingDirection: Direction
     var dismissingDirection: Direction
@@ -273,12 +282,14 @@ final public class Loaf {
     public init(_ message: String,
                 state: State = .info,
                 location: Location = .bottom,
+                layoutReference: LayoutReference = .currentContext,
                 presentingDirection: Direction = .vertical,
                 dismissingDirection: Direction = .vertical,
                 sender: UIViewController) {
         self.message = message
         self.state = state
         self.location = location
+        self.layoutReference = layoutReference
         self.presentingDirection = presentingDirection
         self.dismissingDirection = dismissingDirection
         self.sender = sender
@@ -326,7 +337,7 @@ final fileprivate class LoafManager: LoafDelegate {
         isPresenting = true
         let loafVC = LoafViewController(loaf)
         loafVC.delegate = self
-        sender.presentToast(loafVC)
+        sender.present(loafVC, animated: true)
     }
 }
 
@@ -349,6 +360,8 @@ final class LoafViewController: UIViewController {
         self.loaf = toast
         self.transDelegate = Manager(loaf: toast)
         super.init(nibName: nil, bundle: nil)
+        self.transitioningDelegate = self.transDelegate
+        self.modalPresentationStyle = .custom
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -373,6 +386,7 @@ final class LoafViewController: UIViewController {
         imageView.isHidden = (imageView.image == nil)
         
         stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.insetsLayoutMarginsFromSafeArea = false
         stackView.isLayoutMarginsRelativeArrangement = true
         stackView.directionalLayoutMargins = style.layoutMargins
         stackView.axis = .horizontal

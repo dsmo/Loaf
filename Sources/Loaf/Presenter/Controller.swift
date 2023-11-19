@@ -10,6 +10,18 @@ import UIKit
 
 final class Controller: UIPresentationController {
     private let loaf: Loaf
+    private let hitTestView = HitTestView()
+    
+    class HitTestView: UIView {
+        weak var presentingView: UIView?
+        
+        override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+            guard let presentingView = presentingView, presentingView.window != nil else {
+                return super.hitTest(point, with: event)
+            }
+            return presentingView.hitTest(presentingView.convert(point, from: self), with: event)
+        }
+    }
     
     init(presentedViewController: UIViewController,
          presenting presentingViewController: UIViewController?,
@@ -26,39 +38,10 @@ final class Controller: UIPresentationController {
     
     override func presentationTransitionWillBegin() {
         guard let containerView = containerView else { return }
-        let size = frameOfPresentedViewInContainerView.size
-
-        var containerInsets: UIEdgeInsets
-        if #available(iOS 11, *) {
-            containerInsets = containerView.safeAreaInsets
-        } else {
-            let statusBarSize = UIApplication.shared.statusBarFrame.size
-            containerInsets = UIEdgeInsets(top: min(statusBarSize.width, statusBarSize.height), left: 0, bottom: 0, right: 0)
-        }
-
-        if let tabBar = loaf.sender?.parent as? UITabBarController{
-            containerInsets.bottom += tabBar.tabBar.frame.height
-        }
-
-        let prettyfierInset = CGFloat(10)
-        if containerInsets.bottom == 0 {
-            containerInsets.bottom += prettyfierInset
-        }
-        containerInsets.top += prettyfierInset
-
-        let yPosition: CGFloat
-        switch loaf.location {
-        case .bottom:
-            yPosition = containerView.frame.origin.y + containerView.frame.height - size.height - containerInsets.bottom
-        case .top:
-            yPosition = containerInsets.top
-        }
-        
-        containerView.frame.origin = CGPoint(
-            x: (containerView.frame.width - frameOfPresentedViewInContainerView.width) / 2,
-            y: yPosition
-        )
-        containerView.frame.size = size
+        hitTestView.presentingView = presentingViewController.view
+        hitTestView.frame = containerView.bounds
+        hitTestView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        containerView.addSubview(hitTestView)
     }
     
     override func size(forChildContentContainer container: UIContentContainer, withParentContainerSize parentSize: CGSize) -> CGSize {
@@ -67,16 +50,36 @@ final class Controller: UIPresentationController {
     
     override var frameOfPresentedViewInContainerView: CGRect {
         guard let containerView = containerView else { return .zero }
-        let containerSize = size(forChildContentContainer: presentedViewController,
-                                 withParentContainerSize: containerView.bounds.size)
+        let presentedViewSize = size(forChildContentContainer: presentedViewController, withParentContainerSize: containerView.bounds.size)
         
-        let toastSize = CGRect(x: 0,
-                               y: 0,
-                               width: containerSize.width,
-                               height: containerSize.height
-        )
+        let referenceView: UIView
+        switch loaf.layoutReference {
+        case .currentContext:
+            referenceView = presentingViewController.view!
+        case .sender:
+            referenceView = loaf.sender?.view ?? presentingViewController.view!
+        }
         
-        return toastSize
+        let containerSafeArea = containerView.convert(referenceView.frame.inset(by: referenceView.safeAreaInsets), from: referenceView.superview)
+        let prettyfierInset = CGFloat(10)
+        
+        let yPosition: CGFloat
+        switch loaf.location {
+        case .bottom:
+            yPosition = containerSafeArea.maxY - presentedViewSize.height - prettyfierInset
+        case .top:
+            yPosition = containerSafeArea.minY + prettyfierInset
+        }
+        
+        let toastFrame = CGRect(origin: CGPoint(
+            x: (containerView.frame.width - presentedViewSize.width) / 2,
+            y: yPosition
+        ), size: presentedViewSize)
+        return toastFrame
+    }
+    
+    override var shouldPresentInFullscreen: Bool {
+        return false
     }
     
     override func preferredContentSizeDidChange(forChildContentContainer container: UIContentContainer) {

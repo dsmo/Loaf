@@ -56,34 +56,44 @@ extension Animator: UIViewControllerInteractiveTransitioning {
         guard let controller = isPresenting ? toViewController : fromViewController else { return }
         guard let view = isPresenting ? toView : fromView else { return }
         
+        let presentedFrame: CGRect
         if isPresenting {
             containerView.addSubview(view)
+            presentedFrame = transitionContext.finalFrame(for: controller)
+        } else {
+            presentedFrame = transitionContext.initialFrame(for: controller)
         }
         
-        let presentedFrame = transitionContext.finalFrame(for: controller)
         var dismissedFrame = presentedFrame
         
         switch isPresenting ? loaf.presentingDirection : loaf.dismissingDirection {
         case .vertical:
-            dismissedFrame.origin.y = (loaf.location == .bottom) ? view.frame.height + 60 : -dismissedFrame.height - 60
+            dismissedFrame.origin.y = (loaf.location == .bottom) ? containerView.bounds.height + 60 : -dismissedFrame.height - 60
         case .left:
-            dismissedFrame.origin.x = -view.frame.width * 2
+            dismissedFrame.origin.x = -dismissedFrame.width * 2
         case .right:
-            dismissedFrame.origin.x = view.frame.width * 2
+            dismissedFrame.origin.x = containerView.bounds.width + dismissedFrame.width
         }
         
         let initialFrame = isPresenting ? dismissedFrame : presentedFrame
         let finalFrame = isPresenting ? presentedFrame : dismissedFrame
-
-        view.alpha = isPresenting ? 0 : 1
-        view.frame = initialFrame
         
         let animationDuration = transitionDuration(using: transitionContext)
         let timing = UISpringTimingParameters(dampingRatio: 1.0)
         let animator = UIViewPropertyAnimator(duration: animationDuration, timingParameters: timing)
-        animator.addAnimations {
-            view.frame = finalFrame
-            view.alpha = isPresenting ? 1 : 0
+        
+        if isPresenting {
+            view.alpha = 0
+            view.frame = initialFrame
+            animator.addAnimations {
+                view.frame = finalFrame
+                view.alpha = 1
+            }
+        } else {
+            animator.addAnimations {
+                view.frame = finalFrame
+                view.alpha =  0
+            }
         }
         animator.addCompletion { position in
             let completed = (position == .end)

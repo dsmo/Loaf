@@ -8,23 +8,6 @@
 
 import UIKit
 
-extension UIViewController {
-    func presentToast(_ smartToastViewController: LoafViewController) {
-        smartToastViewController.transDelegate = Manager(loaf: smartToastViewController.loaf)
-        smartToastViewController.transitioningDelegate = smartToastViewController.transDelegate
-        smartToastViewController.modalPresentationStyle = .custom
-        present(smartToastViewController, animated: true)
-    }
-}
-
-extension String {
-    func heightWithConstrainedWidth(width: CGFloat, font: UIFont) -> CGFloat {
-        let constraintRect = CGSize(width: width, height: .greatestFiniteMagnitude)
-        let boundingBox = self.boundingRect(with: constraintRect, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [NSAttributedString.Key.font: font], context: nil)
-        return boundingBox.height
-    }
-}
-
 extension UIColor {
     convenience init(hexString: String) {
         let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
