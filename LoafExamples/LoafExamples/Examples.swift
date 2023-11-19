@@ -28,11 +28,14 @@ class Examples: UITableViewController {
         case custom1  = "This will showcase using custom colors and font"
         case custom2  = "This will showcase using right icon alignment"
         case custom3  = "This will showcase using no icon and 80% screen size width"
-		
+        case custom4  = "This will showcase fitting max text width 180pt width"
+        case custom5  = "This will showcase background using UIVisualEffect"
+        case custom6  = "Shape & border"
+        
         static let grouped: [[Example]] = [[.success, .error, .warning, .info],
                                            [.bottom, .top],
                                            [.vertical, .left, .right, .mix],
-                                           [.custom1, .custom2, .custom3]]
+                                           [.custom1, .custom2, .custom3, custom4, custom5, custom6]]
     }
     
     private var isDarkMode = false
@@ -51,9 +54,9 @@ class Examples: UITableViewController {
         tableView.backgroundColor                        = isDarkMode ? .groupTableViewBackground : .black
         
         if isDarkMode {
-            Loaf("Switched to light mode", state: .custom(.init(backgroundColor: .black, icon: UIImage(named: "moon"))), sender: self).show(.short)
+            Loaf("Switched to light mode", state: .custom(.init(background: .color(.black), icon: UIImage(named: "moon"))), sender: self).show(.short)
         } else {
-            Loaf("Switched to dark mode", state: .custom(.init(backgroundColor: .white, textColor: .black, tintColor: .black, icon: UIImage(named: "moon"))), sender: self).show(.short)
+            Loaf("Switched to dark mode", state: .custom(.init(background: .color(.white), textColor: .black, tintColor: .black, icon: UIImage(named: "moon"))), sender: self).show(.short)
         }
         
         tableView.reloadData()
@@ -107,11 +110,19 @@ class Examples: UITableViewController {
             Loaf(example.rawValue, presentingDirection: .left, dismissingDirection: .vertical, sender: self).show(.short)
             
         case .custom1:
-            Loaf(example.rawValue, state: .custom(.init(backgroundColor: .purple, textColor: .yellow, tintColor: .green, font: .systemFont(ofSize: 18, weight: .bold), icon: Loaf.Icon.success)), sender: self).show()
+            Loaf(example.rawValue, state: .custom(.init(background: .color(.purple), textColor: .yellow, tintColor: .green, font: .systemFont(ofSize: 18, weight: .bold), icon: Loaf.Icon.success)), sender: self).show()
         case .custom2:
-            Loaf(example.rawValue, state: .custom(.init(backgroundColor: .purple, iconAlignment: .right)), sender: self).show()
+            Loaf(example.rawValue, state: .custom(.init(background: .color(.purple), iconAlignment: .trailing)), sender: self).show()
         case .custom3:
-            Loaf(example.rawValue, state: .custom(.init(backgroundColor: .black, icon: nil, textAlignment: .center, width: .screenPercentage(0.8))), sender: self).show()
+            Loaf(example.rawValue, state: .custom(.init(background: .color(.black), icon: nil, textAlignment: .center, width: .screenPercentage(0.8))), sender: self).show()
+        case .custom4:
+            Loaf(example.rawValue, state: .custom(.init(background: .color(.black), icon: nil, textAlignment: .center, width: .fittingText(maxTextWidth: 180))), sender: self).show()
+        case .custom5:
+            Loaf(example.rawValue, state: .custom(.init(background: .visualEffect(UIBlurEffect(style: .regular)), shadow: .init(), textColor: .black, tintColor: .black, textAlignment: .center, width: .fittingText(maxTextWidth: 300))), sender: self).show()
+        case .custom6:
+            let backgroundView = UIView()
+            backgroundView.backgroundColor = .systemBlue
+            Loaf(example.rawValue, state: .custom(.init(background: .view(backgroundView), shape: .capsule, stroke: .init(thickness: 1, color: .white), shadow: .init(), textAlignment: .center, width: .fittingText(maxTextWidth: 200))), location: .top, sender: self).show()
         }
         
         tableView.deselectRow(at: indexPath, animated: true)

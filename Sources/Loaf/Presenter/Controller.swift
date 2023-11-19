@@ -10,17 +10,11 @@ import UIKit
 
 final class Controller: UIPresentationController {
     private let loaf: Loaf
-    private let size: CGSize
     
-    init(
-        presentedViewController: UIViewController,
-        presenting presentingViewController: UIViewController?,
-        loaf: Loaf,
-        size: CGSize) {
-        
+    init(presentedViewController: UIViewController,
+         presenting presentingViewController: UIViewController?,
+         loaf: Loaf) {
         self.loaf = loaf
-        self.size = size
-        
         super.init(presentedViewController: presentedViewController, presenting: presentingViewController)
     }
     
@@ -32,6 +26,7 @@ final class Controller: UIPresentationController {
     
     override func presentationTransitionWillBegin() {
         guard let containerView = containerView else { return }
+        let size = frameOfPresentedViewInContainerView.size
 
         var containerInsets: UIEdgeInsets
         if #available(iOS 11, *) {
@@ -60,14 +55,14 @@ final class Controller: UIPresentationController {
         }
         
         containerView.frame.origin = CGPoint(
-            x: (containerView.frame.width - frameOfPresentedViewInContainerView.width) / 4,
+            x: (containerView.frame.width - frameOfPresentedViewInContainerView.width) / 2,
             y: yPosition
         )
         containerView.frame.size = size
     }
     
     override func size(forChildContentContainer container: UIContentContainer, withParentContainerSize parentSize: CGSize) -> CGSize {
-        return size
+        return container.preferredContentSize
     }
     
     override var frameOfPresentedViewInContainerView: CGRect {
@@ -75,20 +70,19 @@ final class Controller: UIPresentationController {
         let containerSize = size(forChildContentContainer: presentedViewController,
                                  withParentContainerSize: containerView.bounds.size)
         
-        let yPosition: CGFloat
-        switch loaf.location {
-        case .bottom:
-            yPosition = containerView.bounds.height - containerSize.height
-        case .top:
-            yPosition = 0
-        }
-        
-        let toastSize = CGRect(x: containerView.center.x - (containerSize.width / 2),
-                               y: yPosition,
+        let toastSize = CGRect(x: 0,
+                               y: 0,
                                width: containerSize.width,
                                height: containerSize.height
         )
         
         return toastSize
+    }
+    
+    override func preferredContentSizeDidChange(forChildContentContainer container: UIContentContainer) {
+        super.preferredContentSizeDidChange(forChildContentContainer: container)
+        if container === presentedViewController {
+            containerView?.setNeedsLayout()
+        }
     }
 }

@@ -9,15 +9,13 @@
 import UIKit
 
 final class Animator: NSObject {
-    var presenting: Bool!
     private let loaf: Loaf
     private let duration: TimeInterval
-    private let size: CGSize
+    private var animator: UIViewPropertyAnimator?
     
-    init(duration: TimeInterval, loaf: Loaf, size: CGSize) {
+    init(duration: TimeInterval, loaf: Loaf) {
         self.duration = duration
         self.loaf = loaf
-        self.size = size
         super.init()
     }
 }
@@ -27,41 +25,71 @@ extension Animator: UIViewControllerAnimatedTransitioning {
         return duration
     }
     
-    func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
-        let key: UITransitionContextViewControllerKey = presenting ? .to : .from
-        let controller = transitionContext.viewController(forKey: key)!
+    func animateTransition(using transitionContext: UIViewControllerContextTransitioning) { }
+    
+    func interruptibleAnimator(using transitionContext: UIViewControllerContextTransitioning) -> UIViewImplicitlyAnimating {
+        guard let animator else {
+            fatalError("The animator should remain exist duration the transtion")
+        }
         
-        if presenting {
-            transitionContext.containerView.addSubview(controller.view)
+        return animator
+    }
+    
+    func animationEnded(_ transitionCompleted: Bool) {
+        self.animator = nil
+    }
+}
+
+extension Animator: UIViewControllerInteractiveTransitioning {
+    var wantsInteractiveStart: Bool {
+        return false
+    }
+    
+    func startInteractiveTransition(_ transitionContext: UIViewControllerContextTransitioning) {
+        let fromViewController = transitionContext.viewController(forKey: .from)
+        let toViewController = transitionContext.viewController(forKey: .to)
+        let isPresenting = (toViewController?.presentingViewController === fromViewController)
+        let fromView = transitionContext.view(forKey: .from)
+        let toView = transitionContext.view(forKey: .to)
+        let containerView = transitionContext.containerView
+        
+        guard let controller = isPresenting ? toViewController : fromViewController else { return }
+        guard let view = isPresenting ? toView : fromView else { return }
+        
+        if isPresenting {
+            containerView.addSubview(view)
         }
         
         let presentedFrame = transitionContext.finalFrame(for: controller)
         var dismissedFrame = presentedFrame
         
-        switch presenting ? loaf.presentingDirection : loaf.dismissingDirection {
+        switch isPresenting ? loaf.presentingDirection : loaf.dismissingDirection {
         case .vertical:
-            dismissedFrame.origin.y = (loaf.location == .bottom) ? controller.view.frame.height + 60 : -size.height - 60
+            dismissedFrame.origin.y = (loaf.location == .bottom) ? view.frame.height + 60 : -dismissedFrame.height - 60
         case .left:
-            dismissedFrame.origin.x = -controller.view.frame.width * 2
+            dismissedFrame.origin.x = -view.frame.width * 2
         case .right:
-            dismissedFrame.origin.x = controller.view.frame.width * 2
+            dismissedFrame.origin.x = view.frame.width * 2
         }
         
-        let initialFrame = presenting ? dismissedFrame : presentedFrame
-        let finalFrame = presenting ? presentedFrame : dismissedFrame
-        let animationOption: UIView.AnimationOptions = presenting ? .curveEaseOut : .curveEaseIn
-        
-        controller.view.alpha = presenting ? 0 : 1
+        let initialFrame = isPresenting ? dismissedFrame : presentedFrame
+        let finalFrame = isPresenting ? presentedFrame : dismissedFrame
+
+        view.alpha = isPresenting ? 0 : 1
+        view.frame = initialFrame
         
         let animationDuration = transitionDuration(using: transitionContext)
-        controller.view.frame = initialFrame
-        
-        UIView.animate(withDuration: animationDuration, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.65, options: animationOption, animations: {
-            controller.view.frame = finalFrame
-            controller.view.alpha = self.presenting ? 1 : 0
-        }, completion: { finished in
-            transitionContext.completeTransition(finished)
-        })
+        let timing = UISpringTimingParameters(dampingRatio: 1.0)
+        let animator = UIViewPropertyAnimator(duration: animationDuration, timingParameters: timing)
+        animator.addAnimations {
+            view.frame = finalFrame
+            view.alpha = isPresenting ? 1 : 0
+        }
+        animator.addCompletion { position in
+            let completed = (position == .end)
+            transitionContext.completeTransition(completed)
+        }
+        animator.startAnimation()
+        self.animator = animator
     }
-    
 }

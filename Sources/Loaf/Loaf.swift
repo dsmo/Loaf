@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Dispatch
 
 final public class Loaf {
     
@@ -14,15 +15,80 @@ final public class Loaf {
     
     /// Define a custom style for the loaf.
     public struct Style {
+        /// Specifies the background of the Loaf.
+        ///
+        /// - color(UIColor): Adds a background view with the color property.
+        /// - view(UIView): Adds the view as background view.
+        /// - visualEffect(UIVisualEffect): Adds a background UIVisualEffectView configured with the UIVisualEffect.
+        public enum Background {
+            case color(UIColor)
+            case view(UIView)
+            case visualEffect(UIVisualEffect)
+        }
+        
         /// Specifies the position of the icon on the loaf. (Default is `.left`)
         ///
-        /// - left: The icon will be on the left of the text
-        /// - right: The icon will be on the right of the text
+        /// - left: The icon will be on the leading side
+        /// - right: The icon will be on the trailing side
         public enum IconAlignment {
-            case left
-            case right
+            case leading
+            case trailing
         }
-		
+        
+        /// Specifies the shape of the loaf.
+        ///
+        /// - rectangle: The rectange shape.
+        ///     - cornerRadius: The corner radius of the rectangle.
+        /// - capsule:  A rectangle with corner radius to its height / 2.
+        public enum Shape {
+            case rectangle(cornerRaidus: CGFloat)
+            case capsule
+            
+            func apply(to view: UIView) {
+                switch self {
+                case .rectangle(cornerRaidus: let radius):
+                    view.layer.cornerRadius = radius
+                case .capsule:
+                    view.layer.cornerRadius = view.bounds.height * 0.5
+                }
+                view.layer.masksToBounds = true
+            }
+        }
+        
+        /// Specifies the stroke (border) of the Loaf. (Default is `nil`)
+        ///
+        /// - thickness: The width of the stroke.
+        /// - color: The color of the stroke.
+        public struct Stroke {
+            let thickness: CGFloat
+            let color: UIColor
+            
+            public init(thickness: CGFloat, color: UIColor) {
+                self.thickness = thickness
+                self.color = color
+            }
+        }
+        
+        /// Specifies the shadow of the Loaf. (Default is `nil`)
+        ///
+        /// - color: The color of the shadow. (Default is `.black`)
+        /// - opacity: The offset of the shadow. (Default is `0.3`)
+        /// - radius: The radius of the shadow. (Default is `5.0`)
+        /// - offset: The offset of the shadow. (Default is `(0 , 1)`)
+        public struct Shadow {
+            let color: UIColor
+            let opacity: CGFloat
+            let radius: CGFloat
+            let offset: CGPoint
+            
+            public init(color: UIColor = .black, opacity: CGFloat = 0.3, radius: CGFloat = 5.0, offset: CGPoint = CGPoint(x: 0, y: 1)) {
+                self.color = color
+                self.opacity = opacity
+                self.radius = radius
+                self.offset = offset
+            }
+        }
+        
         /// Specifies the width of the Loaf. (Default is `.fixed(280)`)
         ///
         /// - fixed: Specified as pixel size. i.e. 280
@@ -30,10 +96,20 @@ final public class Loaf {
         public enum Width {
             case fixed(CGFloat)
             case screenPercentage(CGFloat)
+            case fittingText(maxTextWidth: CGFloat)
         }
         
         /// The background color of the loaf.
-        let backgroundColor: UIColor
+        let background: Background
+        
+        /// The shape of the loaf.
+        let shape: Shape
+        
+        /// The stroke (border) of the loaf.
+        let stroke: Stroke?
+        
+        /// The shadow of the loaf.
+        let shadow: Shadow?
         
         /// The color of the label's text
         let textColor: UIColor
@@ -55,24 +131,35 @@ final public class Loaf {
 		
         /// The width of the loaf
         let width: Width
+        
+        /// The edge insets of the loaf
+        let layoutMargins: NSDirectionalEdgeInsets
 		
         public init(
-            backgroundColor: UIColor,
+            background: Background,
+            shape: Shape = .rectangle(cornerRaidus: 6),
+            stroke: Stroke? = nil,
+            shadow: Shadow? = nil,
             textColor: UIColor = .white,
             tintColor: UIColor = .white,
             font: UIFont = .systemFont(ofSize: 14, weight: .medium),
             icon: UIImage? = Icon.info,
-            textAlignment: NSTextAlignment = .left,
-            iconAlignment: IconAlignment = .left,
-            width: Width = .fixed(280)) {
-            self.backgroundColor = backgroundColor
-            self.textColor = textColor
-            self.tintColor = tintColor
-            self.font = font
-            self.icon = icon
-            self.textAlignment = textAlignment
-            self.iconAlignment = iconAlignment
-            self.width = width
+            textAlignment: NSTextAlignment = .natural,
+            iconAlignment: IconAlignment = .leading,
+            width: Width = .fixed(280),
+            layoutMargins: NSDirectionalEdgeInsets = NSDirectionalEdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 8)) {
+                self.background = background
+                self.shape = shape
+                self.stroke = stroke
+                self.shadow = shadow
+                self.textColor = textColor
+                self.tintColor = tintColor
+                self.font = font
+                self.icon = icon
+                self.textAlignment = textAlignment
+                self.iconAlignment = iconAlignment
+                self.width = width
+                self.layoutMargins = layoutMargins
         }
     }
     
@@ -89,6 +176,29 @@ final public class Loaf {
         case warning
         case info
         case custom(Style)
+        
+        var style: Style {
+            let background: Style.Background
+            var image: UIImage
+            switch self {
+            case .success:
+                image = Loaf.Icon.success
+                background = .color(UIColor(hexString: "#2ecc71"))
+            case .warning:
+                image = Loaf.Icon.warning
+                background = .color(UIColor(hexString: "##f1c40f"))
+            case .error:
+                image = Loaf.Icon.error
+                background = .color(UIColor(hexString: "##e74c3c"))
+            case .info:
+                image = Loaf.Icon.info
+                background = .color(UIColor(hexString: "##34495e"))
+            case .custom(let style):
+                return style
+            }
+            
+            return Style(background: background, icon: image)
+        }
     }
     
     /// Defines the loaction to display the loaf. (Default is `.bottom`)
@@ -227,34 +337,18 @@ protocol LoafDelegate: AnyObject {
 final class LoafViewController: UIViewController {
     var loaf: Loaf
     
+    var backgroundView: UIView!
     let label = UILabel()
     let imageView = UIImageView(image: nil)
-    var font = UIFont.systemFont(ofSize: 14, weight: .medium)
-    var textAlignment: NSTextAlignment = .left
+    let stackView = UIStackView()
+    
     var transDelegate: UIViewControllerTransitioningDelegate
     weak var delegate: LoafDelegate?
     
     init(_ toast: Loaf) {
         self.loaf = toast
-        self.transDelegate = Manager(loaf: toast, size: .zero)
+        self.transDelegate = Manager(loaf: toast)
         super.init(nibName: nil, bundle: nil)
-		
-        var width: CGFloat?
-        if case let Loaf.State.custom(style) = loaf.state {
-            self.font = style.font
-            self.textAlignment = style.textAlignment
-			
-            switch style.width {
-            case .fixed(let value):
-                width = value
-            case .screenPercentage(let percentage):
-                guard 0...1 ~= percentage else { return }
-                width = UIScreen.main.bounds.width * percentage
-            }
-        }
-        
-        let height = max(toast.message.heightWithConstrainedWidth(width: 240, font: font) + 12, 40)
-        preferredContentSize = CGSize(width: width ?? 280, height: height)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -264,43 +358,64 @@ final class LoafViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        let style = loaf.state.style
+        
         label.text = loaf.message
         label.numberOfLines = 0
         label.lineBreakMode = .byWordWrapping
-        label.textColor = .white
-        label.font = font
-        label.textAlignment = textAlignment
-        label.setContentCompressionResistancePriority(.required, for: .vertical)
-        label.translatesAutoresizingMaskIntoConstraints = false
+        label.textColor = style.textColor
+        label.font = style.font
+        label.textAlignment = style.textAlignment
         
-        imageView.tintColor = .white
+        imageView.tintColor = style.tintColor
         imageView.contentMode = .scaleAspectFit
-        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.image = style.icon
+        imageView.isHidden = (imageView.image == nil)
         
-        switch loaf.state {
-        case .success:
-            imageView.image = Loaf.Icon.success
-            view.backgroundColor = UIColor(hexString: "#2ecc71")
-            constrainWithIconAlignment(.left)
-        case .warning:
-            imageView.image = Loaf.Icon.warning
-            view.backgroundColor = UIColor(hexString: "##f1c40f")
-            constrainWithIconAlignment(.left)
-        case .error:
-            imageView.image = Loaf.Icon.error
-            view.backgroundColor = UIColor(hexString: "##e74c3c")
-            constrainWithIconAlignment(.left)
-        case .info:
-            imageView.image = Loaf.Icon.info
-            view.backgroundColor = UIColor(hexString: "##34495e")
-            constrainWithIconAlignment(.left)
-        case .custom(style: let style):
-            imageView.image = style.icon
-            view.backgroundColor = style.backgroundColor
-            imageView.tintColor = style.tintColor
-            label.textColor = style.textColor
-            label.font = style.font
-            constrainWithIconAlignment(style.iconAlignment, showsIcon: imageView.image != nil)
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.isLayoutMarginsRelativeArrangement = true
+        stackView.directionalLayoutMargins = style.layoutMargins
+        stackView.axis = .horizontal
+        stackView.spacing = 10
+        stackView.distribution = .fill
+        stackView.alignment = .center
+        
+        if style.iconAlignment == .leading {
+            stackView.addArrangedSubview(imageView)
+            stackView.addArrangedSubview(label)
+        } else {
+            stackView.addArrangedSubview(label)
+            stackView.addArrangedSubview(imageView)
+        }
+                
+        switch style.background {
+        case .color(let color):
+            backgroundView = UIView()
+            backgroundView.backgroundColor = color
+            view.addSubview(backgroundView)
+            view.addSubview(stackView)
+        case .view(let customView):
+            backgroundView = customView
+            view.addSubview(backgroundView)
+            view.addSubview(stackView)
+        case .visualEffect(let visualEffect):
+            let effectView = UIVisualEffectView(effect: visualEffect)
+            effectView.contentView.addSubview(stackView)
+            backgroundView = effectView
+            view.addSubview(backgroundView)
+        }
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+        
+        if let stroke = style.stroke {
+            backgroundView.layer.borderWidth = stroke.thickness
+            backgroundView.layer.borderColor = stroke.color.cgColor
+        }
+        
+        if let shadow = style.shadow {
+            view.layer.shadowColor = shadow.color.cgColor
+            view.layer.shadowOpacity = Float(shadow.opacity)
+            view.layer.shadowRadius = shadow.radius
+            view.layer.shadowOffset = CGSize(width: shadow.offset.x, height: shadow.offset.y)
         }
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
@@ -308,10 +423,43 @@ final class LoafViewController: UIViewController {
         
         DispatchQueue.main.asyncAfter(deadline: .now() + loaf.duration.length, execute: {
             self.dismiss(animated: true) { [weak self] in
-                self?.delegate?.loafDidDismiss()
-                self?.loaf.completionHandler?(.timedOut)
+                guard let self = self else { return }
+                delegate?.loafDidDismiss()
+                loaf.completionHandler?(.timedOut)
             }
         })
+        
+        constraintViews()
+        updatePreferredContentSize()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        loaf.state.style.shape.apply(to: backgroundView)
+    }
+    
+    private func updatePreferredContentSize() {
+        var width: CGFloat = 280
+        var fittingPriority: UILayoutPriority = .required
+        
+        switch loaf.state.style.width {
+        case .fixed(let value):
+            width = value
+            fittingPriority = .required
+        case .screenPercentage(let percentage):
+            guard 0...1 ~= percentage else { return }
+            width = UIScreen.main.bounds.width * percentage
+            fittingPriority = .required
+        case .fittingText(let maxTextWidth):
+            label.preferredMaxLayoutWidth = maxTextWidth
+            fittingPriority = .fittingSizeLevel
+            width = .greatestFiniteMagnitude
+        }
+        
+        let fittingSize = CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)
+        preferredContentSize = view.systemLayoutSizeFitting(fittingSize,
+                                                            withHorizontalFittingPriority: fittingPriority,
+                                                            verticalFittingPriority: .fittingSizeLevel)
     }
     
     @objc private func handleTap() {
@@ -321,46 +469,26 @@ final class LoafViewController: UIViewController {
         }
     }
     
-    private func constrainWithIconAlignment(_ alignment: Loaf.Style.IconAlignment, showsIcon: Bool = true) {
-        view.addSubview(label)
+    private func constraintViews() {
+        NSLayoutConstraint.activate([
+            backgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            backgroundView.topAnchor.constraint(equalTo: view.topAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
         
-        if showsIcon {
-            view.addSubview(imageView)
-            
-            switch alignment {
-            case .left:
-                NSLayoutConstraint.activate([
-                    imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-                    imageView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-                    imageView.heightAnchor.constraint(equalToConstant: 28),
-                    imageView.widthAnchor.constraint(equalToConstant: 28),
-                    
-                    label.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 10),
-                    label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
-                    label.topAnchor.constraint(equalTo: view.topAnchor),
-                    label.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-                ])
-            case .right:
-                NSLayoutConstraint.activate([
-                    imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-                    imageView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-                    imageView.heightAnchor.constraint(equalToConstant: 28),
-                    imageView.widthAnchor.constraint(equalToConstant: 28),
-                    
-                    label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-                    label.trailingAnchor.constraint(equalTo: imageView.leadingAnchor, constant: -4),
-                    label.topAnchor.constraint(equalTo: view.topAnchor),
-                    label.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-                ])
-            }
-        } else {
-            NSLayoutConstraint.activate([
-                label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-                label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-                label.topAnchor.constraint(equalTo: view.topAnchor),
-                label.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-            ])
-        }
+        NSLayoutConstraint.activate([
+            imageView.heightAnchor.constraint(equalToConstant: 28),
+            imageView.widthAnchor.constraint(equalToConstant: 28),
+        ])
+        
+        let stackSuperView = stackView.superview!
+        NSLayoutConstraint.activate([
+            stackView.leadingAnchor.constraint(equalTo: stackSuperView.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: stackSuperView.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: stackSuperView.topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: stackSuperView.bottomAnchor)
+        ])
     }
 }
 

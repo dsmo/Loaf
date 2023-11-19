@@ -10,31 +10,34 @@ import UIKit
 
 final class Manager: NSObject, UIViewControllerTransitioningDelegate {
     private let loaf: Loaf
-    private let size: CGSize
     var animator: Animator
     
-    init(loaf: Loaf, size: CGSize) {
+    init(loaf: Loaf) {
         self.loaf = loaf
-        self.size = size
-        self.animator = Animator(duration: 0.4, loaf: loaf, size: size)
+        self.animator = Animator(duration: 0.4, loaf: loaf)
     }
     
     func presentationController(forPresented presented: UIViewController, presenting: UIViewController?, source: UIViewController) -> UIPresentationController? {
         return Controller(
             presentedViewController: presented,
             presenting: presenting,
-            loaf: loaf,
-            size: size
+            loaf: loaf
         )
     }
     
     func animationController(forPresented presented: UIViewController, presenting: UIViewController, source: UIViewController) -> UIViewControllerAnimatedTransitioning? {
-        animator.presenting = true
         return animator
     }
     
     func animationController(forDismissed dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
-        animator.presenting = false
         return animator
+    }
+    
+    func interactionControllerForPresentation(using animator: UIViewControllerAnimatedTransitioning) -> UIViewControllerInteractiveTransitioning? {
+        return self.animator
+    }
+    
+    func interactionControllerForDismissal(using animator: UIViewControllerAnimatedTransitioning) -> UIViewControllerInteractiveTransitioning? {
+        return self.animator
     }
 }
