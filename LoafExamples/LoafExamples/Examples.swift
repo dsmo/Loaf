@@ -43,8 +43,14 @@ class Examples: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem(image: UIImage(named: "moon"), style: .done, target: self, action: #selector(toggleDarkMode))
-        self.navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .trash, target: self, action: #selector(dismissLoaf))
+        self.navigationItem.rightBarButtonItems = [
+            UIBarButtonItem(image: UIImage(named: "moon"), style: .done, target: self, action: #selector(toggleDarkMode)),
+            UIBarButtonItem(title: "Push", style: .plain, target: self, action: #selector(pushNext))
+        ]
+        self.navigationItem.leftBarButtonItems = [
+            UIBarButtonItem(barButtonSystemItem: .trash, target: self, action: #selector(dismissLoaf)),
+            UIBarButtonItem(title: "Pop", style: .plain, target: self, action: #selector(pop))
+        ]
     }
     
     @objc private func toggleDarkMode() {
@@ -67,6 +73,15 @@ class Examples: UITableViewController {
 		// Manually dismisses the currently presented Loaf
 		Loaf.dismiss(sender: self)
 	}
+    
+    @objc private func pushNext() {
+        let viewController = self.storyboard!.instantiateViewController(withIdentifier: "Examples")
+        navigationController?.pushViewController(viewController, animated: true)
+    }
+    
+    @objc private func pop() {
+        navigationController?.popViewController(animated: true)
+    }
 
     // MARK: - Table view data source
 
@@ -96,6 +111,7 @@ class Examples: UITableViewController {
                 case .tapped: print("Tapped!")
                 case .timedOut: print("Timmed out!")
                 case .programmatically: print("Programmatically!")
+                case .dropped(let message): print("Dropped: \(message)")
                 }
             }
         case .top:

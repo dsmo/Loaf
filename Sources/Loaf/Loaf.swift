@@ -265,6 +265,7 @@ final public class Loaf {
         case tapped
         case timedOut
         case programmatically
+        case dropped(String)
     }
     
     // MARK: - Properties
@@ -335,11 +336,32 @@ final fileprivate class LoafManager: LoafDelegate {
     }
     
     fileprivate func presentIfPossible() {
-        guard isPresenting == false, let loaf = queue.dequeue(), let sender = loaf.sender else { return }
+        guard isPresenting == false else {
+            return
+        }
+        
+        guard let loaf = queue.dequeue() else {
+            return
+        }
+        
+        guard let sender = loaf.sender else {
+            loaf.completionHandler?(.dropped("Sender dealloced!"))
+            presentIfPossible()
+            return
+        }
+        
         isPresenting = true
         let loafVC = LoafViewController(loaf)
         loafVC.delegate = self
         sender.present(loafVC, animated: true)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + loaf.duration.length, execute: { [weak loafVC] in
+            guard let loafVC = loafVC else {
+                return
+            }
+            loaf.dismissalReason = .timedOut
+            loafVC.dismiss(animated: true)
+        })
     }
 }
 
@@ -436,11 +458,6 @@ final class LoafViewController: UIViewController {
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         view.addGestureRecognizer(tapGesture)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + loaf.duration.length, execute: {
-            self.loaf.dismissalReason = .timedOut
-            self.dismiss(animated: true)
-        })
         
         constraintViews()
         updatePreferredContentSize()

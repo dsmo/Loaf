@@ -10,7 +10,7 @@
         <!--Loaf playground 🍞-->
         <scene sceneID="3hN-HJ-zPJ">
             <objects>
-                <tableViewController id="rNb-Q3-bY7" customClass="Examples" customModule="LoafExamples" customModuleProvider="target" sceneMemberID="viewController">
+                <tableViewController storyboardIdentifier="Examples" id="rNb-Q3-bY7" customClass="Examples" customModule="LoafExamples" customModuleProvider="target" sceneMemberID="viewController">
                     <tableView key="view" clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="static" style="grouped" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="18" sectionFooterHeight="18" id="5Xp-Wt-GOf">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
