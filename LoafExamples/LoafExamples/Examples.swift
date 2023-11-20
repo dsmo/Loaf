@@ -106,7 +106,7 @@ class Examples: UITableViewController {
             Loaf(example.rawValue, state: .info, sender: self).show()
             
         case .bottom:
-            Loaf(example.rawValue, sender: self).show { dismissalType in
+            Loaf(example.rawValue, sender: navigationController!).show { dismissalType in
                 switch dismissalType {
                 case .tapped: print("Tapped!")
                 case .timedOut: print("Timmed out!")
@@ -115,7 +115,7 @@ class Examples: UITableViewController {
                 }
             }
         case .top:
-            Loaf(example.rawValue, location: .top, sender: self).show()
+            Loaf(example.rawValue, location: .top, sender: navigationController!).show()
             
         case .vertical:
             Loaf(example.rawValue, sender: self).show(.short)

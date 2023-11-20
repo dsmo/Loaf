@@ -311,11 +311,12 @@ final public class Loaf {
 	/// Manually dismiss a currently presented Loaf
 	///
 	/// - Parameter animated: Whether the dismissal will be animated
-	public static func dismiss(sender: UIViewController, animated: Bool = true){
-		guard LoafManager.shared.isPresenting else { return }
-		guard let vc = sender.presentedViewController as? LoafViewController else { return }
-        vc.loaf.dismissalReason = .programmatically
-		vc.dismiss(animated: animated)
+	public static func dismiss(sender: UIViewController, animated: Bool = true) {
+        guard let loafViewController = sender.children.filter({ $0 is LoafViewController }).first as? LoafViewController else {
+            return
+        }
+        loafViewController.loaf.dismissalReason = .programmatically
+        loafViewController.remove()
 	}
 }
 
@@ -323,7 +324,7 @@ final fileprivate class LoafManager: LoafDelegate {
     static let shared = LoafManager()
     
     fileprivate var queue = Queue<Loaf>()
-    fileprivate var isPresenting = false
+    fileprivate weak var presentingLoaf: Loaf? = nil
     
     fileprivate func queueAndPresent(_ loaf: Loaf) {
         queue.enqueue(loaf)
@@ -331,12 +332,12 @@ final fileprivate class LoafManager: LoafDelegate {
     }
     
     func loafDidDismiss() {
-        isPresenting = false
+        presentingLoaf = nil
         presentIfPossible()
     }
     
     fileprivate func presentIfPossible() {
-        guard isPresenting == false else {
+        guard presentingLoaf == nil else {
             return
         }
         
@@ -356,17 +357,17 @@ final fileprivate class LoafManager: LoafDelegate {
             return
         }
         
-        isPresenting = true
         let loafVC = LoafViewController(loaf)
         loafVC.delegate = self
-        sender.present(loafVC, animated: true)
+        loafVC.showIn(sender)
+        presentingLoaf = loaf
         
         DispatchQueue.main.asyncAfter(deadline: .now() + loaf.duration.length, execute: { [weak loafVC] in
             guard let loafVC = loafVC else {
                 return
             }
             loaf.dismissalReason = .timedOut
-            loafVC.dismiss(animated: true)
+            loafVC.remove()
         })
     }
 }
@@ -382,16 +383,14 @@ final class LoafViewController: UIViewController {
     let label = UILabel()
     let imageView = UIImageView(image: nil)
     let stackView = UIStackView()
+    var initialConstraints: [NSLayoutConstraint]? = nil
+    var finalConstraints: [NSLayoutConstraint]? = nil
     
-    var transDelegate: UIViewControllerTransitioningDelegate
     weak var delegate: LoafDelegate?
     
     init(_ toast: Loaf) {
         self.loaf = toast
-        self.transDelegate = Manager(loaf: toast)
         super.init(nibName: nil, bundle: nil)
-        self.transitioningDelegate = self.transDelegate
-        self.modalPresentationStyle = .custom
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -473,16 +472,7 @@ final class LoafViewController: UIViewController {
         super.viewDidLayoutSubviews()
         loaf.state.style.shape.apply(to: backgroundView)
     }
-    
-    override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
-        super.dismiss(animated: flag) { [weak self] in
-            guard let self = self else { return }
-            completion?()
-            loaf.completionHandler?(loaf.dismissalReason)
-            delegate?.loafDidDismiss()
-        }
-    }
-    
+        
     private func updatePreferredContentSize() {
         var width: CGFloat = 280
         var fittingPriority: UILayoutPriority = .required
@@ -509,7 +499,7 @@ final class LoafViewController: UIViewController {
     
     @objc private func handleTap() {
         loaf.dismissalReason = .tapped
-        dismiss(animated: true)
+        remove()
     }
     
     private func constraintViews() {
@@ -532,6 +522,116 @@ final class LoafViewController: UIViewController {
             stackView.topAnchor.constraint(equalTo: stackSuperView.topAnchor),
             stackView.bottomAnchor.constraint(equalTo: stackSuperView.bottomAnchor)
         ])
+    }
+    
+    deinit {
+        loaf.completionHandler?(loaf.dismissalReason)
+        delegate?.loafDidDismiss()
+    }
+}
+
+extension LoafViewController {
+    fileprivate func showIn(_ viewControlelr: UIViewController) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        viewControlelr.addChild(self)
+        viewControlelr.view.addSubview(view)
+        
+        let presentedViewSize = preferredContentSize
+        let containerView = viewControlelr.view!
+        
+        // size constraints
+        NSLayoutConstraint.activate([
+            view.widthAnchor.constraint(equalToConstant: presentedViewSize.width),
+            view.heightAnchor.constraint(equalToConstant: presentedViewSize.height)
+        ])
+        
+        // final constraints
+        let prettyfierInset = CGFloat(10)
+        let finalHConstraint = view.centerXAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.centerXAnchor)
+        let finalVConstraint: NSLayoutConstraint
+        switch loaf.location {
+        case .bottom:
+            finalVConstraint = view.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor)
+            finalVConstraint.constant = -prettyfierInset
+        case .top:
+            finalVConstraint = view.topAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.topAnchor)
+            finalVConstraint.constant = prettyfierInset
+        }
+        
+        // initial constraints
+        let initialHConstraint: NSLayoutConstraint
+        let initialVConstraint: NSLayoutConstraint
+        switch loaf.presentingDirection {
+        case .vertical:
+            if loaf.location == .bottom {
+                initialHConstraint = finalHConstraint
+                initialVConstraint = view.topAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.bottomAnchor)
+                initialVConstraint.constant = containerView.safeAreaInsets.bottom + 60
+            } else {
+                initialHConstraint = finalHConstraint
+                initialVConstraint = view.bottomAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.topAnchor)
+                initialVConstraint.constant = -containerView.safeAreaInsets.top - 60
+            }
+        case .left:
+            initialHConstraint = view.rightAnchor.constraint(equalTo: containerView.safeAreaLayoutGuide.leftAnchor)
+            initialHConstraint.constant = -containerView.safeAreaInsets.left
+            initialVConstraint = finalVConstraint
+        case .right:
+            initialHConstraint = view.leftAnchor.constraint(equalTo: containerView.rightAnchor)
+            initialHConstraint.constant = containerView.safeAreaInsets.right + 100
+            initialVConstraint = finalVConstraint
+        }
+        
+        let initialConstraints = [initialHConstraint, initialVConstraint]
+        let finalConstraints = [finalHConstraint, finalVConstraint]
+        
+        // do animation
+        let animationDuration = 0.4
+        let timing = UISpringTimingParameters(dampingRatio: 1.0)
+        let animator = UIViewPropertyAnimator(duration: animationDuration, timingParameters: timing)
+        view.alpha = 0
+        NSLayoutConstraint.activate(initialConstraints)
+        containerView.layoutIfNeeded()
+        animator.addAnimations {
+            NSLayoutConstraint.deactivate(initialConstraints)
+            NSLayoutConstraint.activate(finalConstraints)
+            containerView.layoutIfNeeded()
+            self.view.alpha = 1
+        }
+        animator.addCompletion { position in
+            // animation complete
+            self.didMove(toParent: viewControlelr)
+        }
+        animator.startAnimation()
+        
+        self.initialConstraints = initialConstraints
+        self.finalConstraints = finalConstraints
+    }
+    
+    fileprivate func remove(completion: (() -> Void)? = nil) {
+        guard let parentViewController = parent else {
+            return
+        }
+        let containerView = parentViewController.view!
+        
+        // do animation
+        let animationDuration = 0.4
+        let timing = UISpringTimingParameters(dampingRatio: 1.0)
+        let animator = UIViewPropertyAnimator(duration: animationDuration, timingParameters: timing)
+        animator.addAnimations {
+            NSLayoutConstraint.deactivate(self.finalConstraints ?? [])
+            NSLayoutConstraint.activate(self.initialConstraints ?? [])
+            containerView.layoutIfNeeded()
+            self.view.alpha = 0
+        }
+        animator.addCompletion { position in
+            // animation complete
+            self.willMove(toParent: nil)
+            self.view.removeFromSuperview()
+            self.removeFromParent()
+            completion?()
+        }
+        animator.startAnimation()
     }
 }
 
