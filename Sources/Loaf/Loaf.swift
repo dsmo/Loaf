@@ -264,6 +264,7 @@ final public class Loaf {
     public enum DismissalReason {
         case tapped
         case timedOut
+        case programmatically
     }
     
     // MARK: - Properties
@@ -276,6 +277,8 @@ final public class Loaf {
     var presentingDirection: Direction
     var dismissingDirection: Direction
     var completionHandler: LoafCompletionHandler = nil
+    fileprivate var dismissalReason: DismissalReason = .programmatically
+    
     weak var sender: UIViewController?
     
     // MARK: - Public methods
@@ -310,9 +313,8 @@ final public class Loaf {
 	public static func dismiss(sender: UIViewController, animated: Bool = true){
 		guard LoafManager.shared.isPresenting else { return }
 		guard let vc = sender.presentedViewController as? LoafViewController else { return }
-		vc.dismiss(animated: animated) {
-			vc.delegate?.loafDidDismiss()
-		}
+        vc.loaf.dismissalReason = .programmatically
+		vc.dismiss(animated: animated)
 	}
 }
 
@@ -436,11 +438,8 @@ final class LoafViewController: UIViewController {
         view.addGestureRecognizer(tapGesture)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + loaf.duration.length, execute: {
-            self.dismiss(animated: true) { [weak self] in
-                guard let self = self else { return }
-                delegate?.loafDidDismiss()
-                loaf.completionHandler?(.timedOut)
-            }
+            self.loaf.dismissalReason = .timedOut
+            self.dismiss(animated: true)
         })
         
         constraintViews()
@@ -450,6 +449,15 @@ final class LoafViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         loaf.state.style.shape.apply(to: backgroundView)
+    }
+    
+    override func dismiss(animated flag: Bool, completion: (() -> Void)? = nil) {
+        super.dismiss(animated: flag) { [weak self] in
+            guard let self = self else { return }
+            completion?()
+            loaf.completionHandler?(loaf.dismissalReason)
+            delegate?.loafDidDismiss()
+        }
     }
     
     private func updatePreferredContentSize() {
@@ -477,10 +485,8 @@ final class LoafViewController: UIViewController {
     }
     
     @objc private func handleTap() {
-        dismiss(animated: true) { [weak self] in
-            self?.delegate?.loafDidDismiss()
-            self?.loaf.completionHandler?(.tapped)
-        }
+        loaf.dismissalReason = .tapped
+        dismiss(animated: true)
     }
     
     private func constraintViews() {

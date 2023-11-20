@@ -95,6 +95,7 @@ class Examples: UITableViewController {
                 switch dismissalType {
                 case .tapped: print("Tapped!")
                 case .timedOut: print("Timmed out!")
+                case .programmatically: print("Programmatically!")
                 }
             }
         case .top:
