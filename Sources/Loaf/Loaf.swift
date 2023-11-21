@@ -351,12 +351,6 @@ final fileprivate class LoafManager: LoafDelegate {
             return
         }
         
-        guard sender.view.window != nil else {
-            loaf.completionHandler?(.dropped("Sender detached!"))
-            presentIfPossible()
-            return
-        }
-        
         let loafVC = LoafViewController(loaf)
         loafVC.delegate = self
         loafVC.showIn(sender)
