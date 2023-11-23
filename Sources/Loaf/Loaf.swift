@@ -183,16 +183,16 @@ final public class Loaf {
             switch self {
             case .success:
                 image = Loaf.Icon.success
-                background = .color(UIColor(hexString: "#2ecc71"))
+                background = .color(UIColor(hexString: "#2ecc71")!)
             case .warning:
                 image = Loaf.Icon.warning
-                background = .color(UIColor(hexString: "##f1c40f"))
+                background = .color(UIColor(hexString: "##f1c40f")!)
             case .error:
                 image = Loaf.Icon.error
-                background = .color(UIColor(hexString: "##e74c3c"))
+                background = .color(UIColor(hexString: "##e74c3c")!)
             case .info:
                 image = Loaf.Icon.info
-                background = .color(UIColor(hexString: "##34495e"))
+                background = .color(UIColor(hexString: "##34495e")!)
             case .custom(let style):
                 return style
             }
