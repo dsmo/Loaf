@@ -380,6 +380,8 @@ final class LoafViewController: UIViewController {
     var initialConstraints: [NSLayoutConstraint]? = nil
     var finalConstraints: [NSLayoutConstraint]? = nil
     
+    fileprivate let animationDuration: CGFloat = 0.5
+    
     weak var delegate: LoafDelegate?
     
     init(_ toast: Loaf) {
@@ -580,8 +582,7 @@ extension LoafViewController {
         let finalConstraints = [finalHConstraint, finalVConstraint]
         
         // do animation
-        let animationDuration = 0.4
-        let timing = UISpringTimingParameters(dampingRatio: 1.0)
+        let timing = UISpringTimingParameters(dampingRatio: 0.9)
         let animator = UIViewPropertyAnimator(duration: animationDuration, timingParameters: timing)
         view.alpha = 0
         NSLayoutConstraint.activate(initialConstraints)
@@ -609,8 +610,7 @@ extension LoafViewController {
         let containerView = parentViewController.view!
         
         // do animation
-        let animationDuration = 0.4
-        let timing = UISpringTimingParameters(dampingRatio: 1.0)
+        let timing = UISpringTimingParameters(dampingRatio: 0.9)
         let animator = UIViewPropertyAnimator(duration: animationDuration, timingParameters: timing)
         animator.addAnimations {
             NSLayoutConstraint.deactivate(self.finalConstraints ?? [])
